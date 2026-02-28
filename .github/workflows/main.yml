@@ -1,0 +1,60 @@
+name: 股票智能分析与推送 (Daily Stock Analysis)
+
+on:
+  # 1. 允许通过 API 或本地端脚本触发（这是配合本地 Qlib 高阶玩法的必需配置！）
+  workflow_dispatch:
+  
+  # 2. 允许云端定时自动执行
+  schedule:
+    # 这里的 cron 是 UTC 时间，比北京时间慢 8 小时。
+    # '30 10 * * 1-5' 代表：每周一至周五的 UTC 10:30，也就是【北京时间下午 18:30】自动执行
+    - cron: '30 10 * * 1-5'
+
+jobs:
+  analyze_and_push:
+    # 指定运行在 GitHub 提供的免费 Ubuntu 虚拟机上
+    runs-on: ubuntu-latest
+    
+    steps:
+    # 步骤 1: 拉取您仓库里的最新代码（包含本地推送上去的最新股票名单）
+    - name: Checkout Code
+      uses: actions/checkout@v4
+      
+    # 步骤 2: 设置 Python 环境
+    - name: Set up Python 3.10
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+        cache: 'pip' # 开启 pip 缓存，加快每天安装依赖的速度
+        
+    # 步骤 3: 安装项目所需的第三方依赖包
+    - name: Install Dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        
+    # 步骤 4: 执行核心分析与推送脚本
+    - name: Run Daily Stock Analysis
+      env:
+        # 1. 读取您存在 Secrets 里的阿里 DashScope API Key（以 sk- 开头）
+        OPENAI_API_KEY: ${{ secrets.LLM_API_KEY }}
+        
+        # 2. 【新增重点】将基准网址重定向到阿里云的兼容服务器！
+        OPENAI_BASE_URL: "https://dashscope.aliyuncs.com/compatible-mode/v1"
+        
+        # 3. 【新增重点】指定使用的千问模型版本
+        # 推荐使用 qwen-plus（性价比极高）或 qwen-max（智商最高但略贵）
+        # 为了兼容不同写法的底层代码，我们把常见的大模型环境变量名都配上
+        LLM_MODEL: "qwen-plus"
+        OPENAI_MODEL_NAME: "qwen-plus"
+        MODEL_NAME: "qwen-plus"
+        
+        # 4. 微信推送密钥保持不变
+        PUSHPLUS_TOKEN: ${{ secrets.PUSHPLUS_TOKEN }}
+        
+        # 运行日志设为详细模式
+        LOG_LEVEL: INFO
+        
+      run: |
+        # 执行入口文件
+        python main.py
