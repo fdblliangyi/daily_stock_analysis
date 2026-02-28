@@ -1,2 +1,0 @@
-# Stock list for AI analysis
-# Format: sh600000, sz000001, etc.
